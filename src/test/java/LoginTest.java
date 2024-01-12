@@ -1,6 +1,5 @@
 import DTO.CourierCreateRequest;
 import DTO.CourierLoginRequest;
-import groovy.xml.StreamingDOMBuilder;
 import io.qameta.allure.Step;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -11,138 +10,95 @@ import org.junit.Test;
 import steps.CourierSteps;
 import static config.RestConfig.BASE_URI;
 import static org.hamcrest.Matchers.*;
-
+import static org.apache.http.HttpStatus.*;
 
 public class LoginTest {
+
+    String login;
+    String password;
+    String firstName;
+    Integer courierId;
 
     private CourierSteps courierSteps;
 
     @Before
     public void setUp() {
-        RestAssured.baseURI = BASE_URI;
+        login = RandomStringUtils.randomAlphanumeric(10);
+        password = RandomStringUtils.randomAlphanumeric(10);
+        firstName = RandomStringUtils.randomAlphanumeric(10);
         courierSteps = new CourierSteps();
+        RestAssured.baseURI = BASE_URI;
     }
 
     @Test
     public void checkSuccessfulCourierAuth() {
-        String login = RandomStringUtils.random(10);
-        String password = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password, firstName);
         CourierLoginRequest courierLoginRequest = new CourierLoginRequest(login, password);
 
-        sendPostRequestCourier(courierCreateRequest);
+        courierSteps.courierCreate(courierCreateRequest);
 
-        Response response = sendPostRequestCourierLogin(courierLoginRequest);
+        Response response = courierSteps.courierLogin(courierLoginRequest);
         checkResponseBodyIdAndStatusCode200(response);
-
-        int courierId = courierSteps.courierLogin(courierLoginRequest)
-                .then()
-                .extract().body().path("id");
-
-        courierSteps.deleteCourier(courierId);
     }
 
     @Test
     public void checkTheCourierAuthWithoutLogin() {
-        String login = RandomStringUtils.random(10);
-        String password = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password, firstName);
         CourierLoginRequest courierLoginRequest = new CourierLoginRequest();
         courierLoginRequest.setPassword(password);
 
-        sendPostRequestCourier(courierCreateRequest);
+        courierSteps.courierCreate(courierCreateRequest);
 
-        Response response = sendPostRequestCourierLogin(courierLoginRequest);
+        Response response = courierSteps.courierLogin(courierLoginRequest);
         checkResponseBodyMessageAndStatusCode400(response);
-
-        int courierId = courierSteps.courierLogin(new CourierLoginRequest(login, password))
-                .then()
-                .extract().body().path("id");
-
-        courierSteps.deleteCourier(courierId);
     }
 
     @Test
     public void checkTheCourierAuthWithoutPassword() {
-        String login = RandomStringUtils.random(10);
-        String password = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password, firstName);
         CourierLoginRequest courierLoginRequest = new CourierLoginRequest();
         courierLoginRequest.setLogin(login);
 
-        sendPostRequestCourier(courierCreateRequest);
+        courierSteps.courierCreate(courierCreateRequest);
 
-        Response response = sendPostRequestCourierLogin(courierLoginRequest);
+        Response response = courierSteps.courierLogin(courierLoginRequest);
         checkResponseBodyMessageAndStatusCode400(response);
 
-        int courierId = courierSteps.courierLogin(new CourierLoginRequest(login, password))
-                .then()
-                .extract().body().path("id");
-
-        courierSteps.deleteCourier(courierId);
     }
 
     @Test
     public void checkTheCourierAuthWithIncorrectLogin() {
-        String login_1 = RandomStringUtils.random(10);
-        String login_2 = RandomStringUtils.random(10);
-        String password = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
+        String newLogin = RandomStringUtils.randomAlphanumeric(10);
 
-        CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login_1, password, firstName);
-        CourierLoginRequest courierLoginRequest = new CourierLoginRequest(login_2, password);
+        CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password, firstName);
+        CourierLoginRequest courierLoginRequest = new CourierLoginRequest(newLogin, password);
 
-        sendPostRequestCourier(courierCreateRequest);
+        courierSteps.courierCreate(courierCreateRequest);
 
-        Response response = sendPostRequestCourierLogin(courierLoginRequest);
+        Response response = courierSteps.courierLogin(courierLoginRequest);
         checkResponseBodyMessageAndStatusCode404(response);
-
-        int courierId = courierSteps.courierLogin(new CourierLoginRequest(login_1, password))
-                .then()
-                .extract().body().path("id");
-
-        courierSteps.deleteCourier(courierId);
-
     }
 
     @Test
     public void checkTheCourierAuthWithIncorrectPassword() {
-        String login = RandomStringUtils.random(10);
-        String password_1 = RandomStringUtils.random(10);
-        String password_2 = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
+        String newPassword = RandomStringUtils.randomAlphanumeric(10);
 
-        CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password_1, firstName);
-        CourierLoginRequest courierLoginRequest = new CourierLoginRequest(login, password_2);
+        CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password, firstName);
+        CourierLoginRequest courierLoginRequest = new CourierLoginRequest(login, newPassword);
 
-        sendPostRequestCourier(courierCreateRequest);
+        courierSteps.courierCreate(courierCreateRequest);
 
-        Response response = sendPostRequestCourierLogin(courierLoginRequest);
+        Response response = courierSteps.courierLogin(courierLoginRequest);
         checkResponseBodyMessageAndStatusCode404(response);
+    }
 
-        int courierId = courierSteps.courierLogin(new CourierLoginRequest(login, password_1))
+    @After
+    public void deleteCourier() {
+        courierId = courierSteps.courierLogin(new CourierLoginRequest(login, password))
                 .then()
                 .extract().body().path("id");
 
         courierSteps.deleteCourier(courierId);
-    }
-
-    @Step("Send POST request to /api/v1/courier")
-    public Response sendPostRequestCourier(CourierCreateRequest courierCreateRequest){
-        Response response = courierSteps.courierCreate(courierCreateRequest);
-        return response;
-    }
-
-    @Step("Send POST request to /api/v1/courier/login")
-    public Response sendPostRequestCourierLogin(CourierLoginRequest courierLoginRequest){
-        Response response = courierSteps.courierLogin(courierLoginRequest);
-        return response;
     }
 
     @Step("Check response body ID and status code 200")
@@ -150,7 +106,7 @@ public class LoginTest {
         response.then()
                 .assertThat().body("id", notNullValue())
                 .and()
-                .statusCode(200);
+                .statusCode(SC_OK);
     }
 
     @Step("Check response body MESSAGE and status code 400")
@@ -158,7 +114,7 @@ public class LoginTest {
         response.then()
                 .assertThat().body("message", is("Недостаточно данных для входа"))
                 .and()
-                .statusCode(400);
+                .statusCode(SC_BAD_REQUEST);
     }
 
     @Step("Check response body MESSAGE and status code 404")
@@ -166,7 +122,7 @@ public class LoginTest {
         response.then()
                 .assertThat().body("message", is("Учетная запись не найдена"))
                 .and()
-                .statusCode(404);
+                .statusCode(SC_NOT_FOUND);
     }
 
 }

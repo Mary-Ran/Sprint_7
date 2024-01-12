@@ -4,126 +4,108 @@ import io.qameta.allure.Step;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import steps.CourierSteps;
 import static config.RestConfig.BASE_URI;
 import static org.hamcrest.Matchers.*;
+import static org.apache.http.HttpStatus.*;
 
 public class CourierTest {
 
+    String login;
+    String password;
+    String firstName;
+    Integer courierId;
     private CourierSteps courierSteps;
 
     @Before
     public void SetUp() {
-        RestAssured.baseURI = BASE_URI;
+        login = RandomStringUtils.randomAlphanumeric(10);
+        password = RandomStringUtils.randomAlphanumeric(10);
+        firstName = RandomStringUtils.randomAlphanumeric(10);
         courierSteps = new CourierSteps();
+        RestAssured.baseURI = BASE_URI;
     }
 
     @Test
     public void checkSuccessfulCourierCreation() {
-        String login = RandomStringUtils.random(10);
-        String password = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password, firstName);
 
-        Response response = sendPostRequestCourier(courierCreateRequest);
+        Response response = courierSteps.courierCreate(courierCreateRequest);
         checkResponseBodyIsOkAndStatusCode201(response);
-
-        int courierId = courierSteps.courierLogin(new CourierLoginRequest(login, password))
-                .then()
-                .extract().body().path("id");
-
-        courierSteps.deleteCourier(courierId);
 
     }
 
     @Test
     public void checkTheCreationOfTwoIdenticalCouriers() {
-        String login = RandomStringUtils.random(10);
-        String password = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest(login, password, firstName);
 
-        sendPostRequestCourier(courierCreateRequest);
+        courierSteps.courierCreate(courierCreateRequest);
 
-        Response response = sendPostRequestCourier(courierCreateRequest);
+        Response response = courierSteps.courierCreate(courierCreateRequest);
         checkResponseBodyMessageAndStatusCode409(response);
 
     }
 
     @Test
     public void checkTheCreationOfTwoCouriersWithTheSameLogins() {
-        String login = RandomStringUtils.random(10);
-        String password_1 = RandomStringUtils.random(10);
-        String password_2 = RandomStringUtils.random(10);
-        String firstName_1 = RandomStringUtils.random(10);
-        String firstName_2 = RandomStringUtils.random(10);
+        String newPassword = RandomStringUtils.randomAlphanumeric(10);
+        String newFirstName = RandomStringUtils.randomAlphanumeric(10);
 
-        CourierCreateRequest firstCourier = new CourierCreateRequest(login, password_1, firstName_1);
-        CourierCreateRequest secondCourier = new CourierCreateRequest(login, password_2, firstName_2);
+        CourierCreateRequest firstCourier = new CourierCreateRequest(login, password, firstName);
+        CourierCreateRequest secondCourier = new CourierCreateRequest(login, newPassword, newFirstName);
 
-        sendPostRequestCourier(firstCourier);
+        courierSteps.courierCreate(firstCourier);
 
-        Response response = sendPostRequestCourier(secondCourier);
+        Response response = courierSteps.courierCreate(secondCourier);
         checkResponseBodyMessageAndStatusCode409(response);
 
     }
 
     @Test
     public void checkTheCreationOfACourierWithoutLogin() {
-        String password = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest();
         courierCreateRequest.setPassword(password);
         courierCreateRequest.setFirst_name(firstName);
 
-        Response response = sendPostRequestCourier(courierCreateRequest);
+        Response response = courierSteps.courierCreate(courierCreateRequest);
         checkResponseBodyMessageAndStatusCode400(response);
 
     }
 
     @Test
     public void checkTheCreationOfACourierWithoutPassword() {
-        String login = RandomStringUtils.random(10);
-        String firstName = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest();
         courierCreateRequest.setLogin(login);
         courierCreateRequest.setFirst_name(firstName);
 
-        Response response = sendPostRequestCourier(courierCreateRequest);
+        Response response = courierSteps.courierCreate(courierCreateRequest);
         checkResponseBodyMessageAndStatusCode400(response);
 
     }
 
     @Test
     public void checkTheCreationOfACourierWithoutFirstName() {
-        String login = RandomStringUtils.random(10);
-        String password = RandomStringUtils.random(10);
-
         CourierCreateRequest courierCreateRequest = new CourierCreateRequest();
         courierCreateRequest.setLogin(login);
         courierCreateRequest.setPassword(password);
 
-        Response response = sendPostRequestCourier(courierCreateRequest);
+        Response response = courierSteps.courierCreate(courierCreateRequest);
         checkResponseBodyIsOkAndStatusCode201(response);
-
-        int courierId = courierSteps.courierLogin(new CourierLoginRequest(login, password))
-                .then()
-                .extract().body().path("id");
-
-        courierSteps.deleteCourier(courierId);
 
     }
 
-    @Step("Send POST request to /api/v1/courier")
-    public Response sendPostRequestCourier(CourierCreateRequest courierCreateRequest){
-        Response response = courierSteps.courierCreate(courierCreateRequest);
-        return response;
+    @After
+    public void deleteCourier() {
+        courierId = courierSteps.courierLogin(new CourierLoginRequest(login, password))
+                .then()
+                .extract().body().path("id");
+
+        if (courierId!=null) {
+            courierSteps.deleteCourier(courierId);
+        }
     }
 
     @Step("Check response body OK and status code 201")
@@ -131,7 +113,7 @@ public class CourierTest {
         response.then()
                 .assertThat().body("ok", is(true))
                 .and()
-                .statusCode(201);
+                .statusCode(SC_CREATED);
     }
 
     @Step("Check response body MESSAGE and status code 409")
@@ -139,7 +121,7 @@ public class CourierTest {
         response.then()
                 .assertThat().body("message", is("Этот логин уже используется. Попробуйте другой."))
                 .and()
-                .statusCode(409);
+                .statusCode(SC_CONFLICT);
     }
 
     @Step("Check response body MESSAGE and status code 400")
@@ -147,7 +129,7 @@ public class CourierTest {
         response.then()
                 .assertThat().body("message", is("Недостаточно данных для создания учетной записи"))
                 .and()
-                .statusCode(400);
+                .statusCode(SC_BAD_REQUEST);
     }
 
 }

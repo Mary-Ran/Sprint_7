@@ -1,5 +1,8 @@
 package DTO;
 
+import lombok.Data;
+
+@Data
 public class CourierLoginRequest {
     String login;
     String password;
@@ -12,19 +15,4 @@ public class CourierLoginRequest {
     public CourierLoginRequest() {
     }
 
-    public String getLogin() {
-        return login;
-    }
-
-    public void setLogin(String login) {
-        this.login = login;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
 }
