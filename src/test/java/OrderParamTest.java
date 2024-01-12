@@ -1,0 +1,58 @@
+import DTO.OrderCreateRequest;
+import io.qameta.allure.Step;
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import steps.OrderSteps;
+import java.util.List;
+import static config.RestConfig.BASE_URI;
+import static org.hamcrest.Matchers.*;
+import static org.apache.http.HttpStatus.*;
+
+@RunWith(Parameterized.class)
+public class OrderParamTest {
+    private final List<String> color;
+    private OrderSteps orderSteps;
+
+    public OrderParamTest(List<String> color) {
+        this.color = color;
+    }
+
+    @Parameterized.Parameters
+    public static Object[] getColor() {
+        return new Object[]{
+                List.of("BLACK"),
+                List.of("GREY"),
+                List.of("BLACK", "GREY"),
+                List.of(),
+        };
+    }
+
+    @Before
+    public void setUp() {
+        RestAssured.baseURI = BASE_URI;
+        orderSteps = new OrderSteps();
+    }
+
+    @Test
+    public void checkSuccessfulOrderCreationWithColor() {
+        OrderCreateRequest orderCreateRequest = new OrderCreateRequest("Naruto", "Uchiha", "Konoha, 142 apt.", "2", "+7 800 355 35 35", 5, "2020-06-06", "Saske, come back to Konoha");
+        orderCreateRequest.setColor(color);
+
+        Response response = orderSteps.orderCreate(orderCreateRequest);
+        checkResponseBodyTrackAndStatusCode201(response);
+
+    }
+
+    @Step("Check response body TRACK and status code 201")
+    public void checkResponseBodyTrackAndStatusCode201(Response response){
+        response.then()
+                .assertThat().body("track", notNullValue())
+                .and()
+                .statusCode(SC_CREATED);
+    }
+
+}
